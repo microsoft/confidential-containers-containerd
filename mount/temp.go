@@ -30,6 +30,11 @@ var tempMountLocation = getTempDir()
 // The mounts are valid during the call to the f.
 // Finally we will unmount and remove the temp dir regardless of the result of f.
 func WithTempMount(ctx context.Context, mounts []Mount, f func(root string) error) (err error) {
+	if len(mounts) == 1 && mounts[0].Type == "tar-overlay" {
+		log.G(ctx).Warning("WithTempMount called, ignoring for now")
+		return nil
+	}
+
 	root, uerr := os.MkdirTemp(tempMountLocation, "containerd-mount")
 	if uerr != nil {
 		return fmt.Errorf("failed to create temp dir: %w", uerr)
