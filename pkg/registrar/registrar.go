@@ -99,3 +99,11 @@ func (r *Registrar) ReleaseByKey(key string) {
 	delete(r.nameToKey, name)
 	delete(r.keyToName, key)
 }
+
+func (r *Registrar) NameToKey(name string) (key string, exists bool) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	key, exists = r.nameToKey[name]
+	return
+}
