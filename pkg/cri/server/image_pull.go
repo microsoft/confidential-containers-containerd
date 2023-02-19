@@ -735,6 +735,29 @@ func (rt *pullRequestReporterRoundTripper) RoundTrip(req *http.Request) (*http.R
 	return resp, err
 }
 
+// Determines (on a best-effort basis) the runtime handler based on the sandbox
+// config. This is implemented by looking the sandbox up based on its name
+// derived from the config; if the sandbox exists, we get the runtime handler
+// stored in it, otherwise we fail the request.
+func (c *criService) runtimeHandlerFromPodSandboxConfig(ctx context.Context, s *runtime.PodSandboxConfig) (string, bool) {
+	metadata := s.GetMetadata()
+	if metadata == nil {
+		return "", false
+	}
+
+	id, ok := c.sandboxNameIndex.NameToKey(makeSandboxName(metadata))
+	if !ok {
+		return "", false
+	}
+
+	sandbox, err := c.sandboxStore.Get(id)
+	if err != nil {
+		return "", false
+	}
+
+	return sandbox.Metadata.RuntimeHandler, true
+}
+
 // Given that runtime information is not passed from PullImageRequest, we depend on an experimental annotation
 // passed from pod sandbox config to get the runtimeHandler. The annotation key is specified in configuration.
 // Once we know the runtime, try to override default snapshotter if it is set for this runtime.
@@ -742,13 +765,20 @@ func (rt *pullRequestReporterRoundTripper) RoundTrip(req *http.Request) (*http.R
 func (c *criService) snapshotterFromPodSandboxConfig(ctx context.Context, imageRef string,
 	s *runtime.PodSandboxConfig) (string, error) {
 	snapshotter := c.config.ContainerdConfig.Snapshotter
-	if s == nil || s.Annotations == nil {
+	if s == nil {
 		return snapshotter, nil
 	}
 
-	runtimeHandler, ok := s.Annotations[annotations.RuntimeHandler]
+	var runtimeHandler string
+	ok := false
+	if s.Annotations != nil {
+		runtimeHandler, ok = s.Annotations[annotations.RuntimeHandler]
+	}
 	if !ok {
-		return snapshotter, nil
+		runtimeHandler, ok = c.runtimeHandlerFromPodSandboxConfig(ctx, s)
+		if !ok {
+			return snapshotter, nil
+		}
 	}
 
 	ociRuntime, err := c.getSandboxRuntime(s, runtimeHandler)
