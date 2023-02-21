@@ -96,6 +96,15 @@ import (
 
 // PullImage pulls an image with authentication config.
 func (c *criService) PullImage(ctx context.Context, r *runtime.PullImageRequest) (_ *runtime.PullImageResponse, err error) {
+	snapshotter, err := c.snapshotterFromPodSandboxConfig(ctx, r.SandboxConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.pullImage(ctx, r, snapshotter)
+}
+
+func (c *criService) pullImage(ctx context.Context, r *runtime.PullImageRequest, snapshotter string) (_ *runtime.PullImageResponse, err error) {
 	span := tracing.SpanFromContext(ctx)
 	defer func() {
 		// TODO: add domain label for imagePulls metrics, and we may need to provide a mechanism
@@ -146,10 +155,6 @@ func (c *criService) PullImage(ctx context.Context, r *runtime.PullImageRequest)
 	)
 
 	defer pcancel()
-	snapshotter, err := c.snapshotterFromPodSandboxConfig(ctx, ref, r.SandboxConfig)
-	if err != nil {
-		return nil, err
-	}
 	log.G(ctx).Debugf("PullImage %q with snapshotter %s", ref, snapshotter)
 	span.SetAttributes(
 		tracing.Attribute("image.ref", ref),
@@ -778,8 +783,7 @@ func (c *criService) runtimeHandlerFromPodSandboxConfig(ctx context.Context, s *
 // passed from pod sandbox config to get the runtimeHandler. The annotation key is specified in configuration.
 // Once we know the runtime, try to override default snapshotter if it is set for this runtime.
 // See https://github.com/containerd/containerd/issues/6657
-func (c *criService) snapshotterFromPodSandboxConfig(ctx context.Context, imageRef string,
-	s *runtime.PodSandboxConfig) (string, error) {
+func (c *criService) snapshotterFromPodSandboxConfig(ctx context.Context, s *runtime.PodSandboxConfig) (string, error) {
 	snapshotter := c.config.ContainerdConfig.Snapshotter
 	if s == nil {
 		return snapshotter, nil
@@ -803,6 +807,6 @@ func (c *criService) snapshotterFromPodSandboxConfig(ctx context.Context, imageR
 	}
 
 	snapshotter = c.runtimeSnapshotter(context.Background(), ociRuntime)
-	log.G(ctx).Infof("experimental: PullImage %q for runtime %s, using snapshotter %s", imageRef, runtimeHandler, snapshotter)
+	log.G(ctx).Infof("experimental: PullImage for runtime %s, using snapshotter %s", runtimeHandler, snapshotter)
 	return snapshotter, nil
 }
