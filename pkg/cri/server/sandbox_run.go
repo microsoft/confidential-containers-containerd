@@ -100,8 +100,16 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 		},
 	)
 
+	ociRuntime, err := c.getSandboxRuntime(config, r.GetRuntimeHandler())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sandbox runtime: %w", err)
+	}
+	log.G(ctx).WithField("podsandboxid", id).Debugf("use OCI runtime %+v", ociRuntime)
+
+	snapshotter := c.runtimeSnapshotter(ctx, ociRuntime)
+
 	// Ensure sandbox container image snapshot.
-	image, err := c.ensureImageExists(ctx, c.config.SandboxImage, config)
+	image, err := c.ensureImageExists(ctx, c.config.SandboxImage, config, snapshotter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sandbox image %q: %w", c.config.SandboxImage, err)
 	}
@@ -109,12 +117,6 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 	if err != nil {
 		return nil, fmt.Errorf("failed to get image from containerd %q: %w", image.ID, err)
 	}
-
-	ociRuntime, err := c.getSandboxRuntime(config, r.GetRuntimeHandler())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get sandbox runtime: %w", err)
-	}
-	log.G(ctx).WithField("podsandboxid", id).Debugf("use OCI runtime %+v", ociRuntime)
 
 	runtimeStart := time.Now()
 	// Create sandbox container.
@@ -166,7 +168,7 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 	sOpts = append(sOpts, extraSOpts...)
 
 	opts := []containerd.NewContainerOpts{
-		containerd.WithSnapshotter(c.runtimeSnapshotter(ctx, ociRuntime)),
+		containerd.WithSnapshotter(snapshotter),
 		customopts.WithNewSnapshot(id, containerdImage, sOpts...),
 		containerd.WithSpec(spec, specOpts...),
 		containerd.WithContainerLabels(sandboxLabels),
