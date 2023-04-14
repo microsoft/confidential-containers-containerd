@@ -231,7 +231,13 @@ func (c *criService) ensureImageExists(ctx context.Context, ref string, config *
 		return nil, fmt.Errorf("failed to get image %q: %w", ref, err)
 	}
 	if err == nil {
-		return &image, nil
+		ociRuntime, err := c.getSandboxRuntime(config, runtimeHandler)
+		if err != nil {
+			return nil, fmt.Errorf("unknown runtime handler %q: %w", runtimeHandler, err)
+		}
+		if _, ok := image.Snapshotters[c.runtimeSnapshotter(ctx, ociRuntime)]; ok {
+			return &image, nil
+		}
 	}
 
 	// Create the annotations for the image spec. They are copied from the pod config then we add the runtime handler.
