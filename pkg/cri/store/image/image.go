@@ -19,6 +19,7 @@ package image
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/containerd/containerd"
@@ -45,6 +46,8 @@ type Image struct {
 	Size int64
 	// ImageSpec is the oci image structure which describes basic information about the image.
 	ImageSpec imagespec.Image
+	// Snapshotters is a map whose keys are snapshotters for which this image has a snapshot.
+	Snapshotters map[string]struct{}
 }
 
 // Store stores all images.
@@ -134,17 +137,31 @@ func getImage(ctx context.Context, i containerd.Image) (*Image, error) {
 
 	id := desc.Digest.String()
 
+	info, err := i.ContentStore().Info(ctx, desc.Digest)
+	if err != nil {
+		return nil, fmt.Errorf("get content store config info: %w", err)
+	}
+
+	snapshotters := make(map[string]struct{})
+	for label := range info.Labels {
+		const Prefix = "containerd.io/gc.ref.snapshot."
+		if strings.HasPrefix(label, Prefix) {
+			snapshotters[label[len(Prefix):]] = struct{}{}
+		}
+	}
+
 	spec, err := i.Spec(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get OCI image spec: %w", err)
 	}
 
 	return &Image{
-		ID:         id,
-		References: []string{i.Name()},
-		ChainID:    chainID.String(),
-		Size:       size,
-		ImageSpec:  spec,
+		ID:           id,
+		References:   []string{i.Name()},
+		ChainID:      chainID.String(),
+		Size:         size,
+		ImageSpec:    spec,
+		Snapshotters: snapshotters,
 	}, nil
 }
 

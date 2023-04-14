@@ -230,8 +230,11 @@ func (c *criService) ensureImageExists(ctx context.Context, ref string, config *
 		return nil, fmt.Errorf("failed to get image %q: %w", ref, err)
 	}
 	if err == nil {
-		return &image, nil
+		if _, ok := image.Snapshotters[snapshotter]; ok {
+			return &image, nil
+		}
 	}
+
 	// Pull image to ensure the image exists
 	resp, err := c.pullImage(ctx, &runtime.PullImageRequest{Image: &runtime.ImageSpec{Image: ref}, SandboxConfig: config}, snapshotter)
 	if err != nil {
