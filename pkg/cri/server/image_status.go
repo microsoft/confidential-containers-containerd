@@ -23,6 +23,7 @@ import (
 
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/log"
+	"github.com/containerd/containerd/pkg/cri/annotations"
 	imagestore "github.com/containerd/containerd/pkg/cri/store/image"
 	"github.com/containerd/containerd/tracing"
 
@@ -45,8 +46,27 @@ func (c *criService) ImageStatus(ctx context.Context, r *runtime.ImageStatusRequ
 		return nil, fmt.Errorf("can not resolve %q locally: %w", r.GetImage().GetImage(), err)
 	}
 	span.SetAttributes(tracing.Attribute("image.id", image.ID))
-	// TODO(random-liu): [P0] Make sure corresponding snapshot exists. What if snapshot
-	// doesn't exist?
+
+	// Check the right snapshot exists if an annotation is provided.
+	if a := r.Image.Annotations; a != nil {
+		if runtimeHandler, ok := a[annotations.RuntimeHandler]; ok {
+			if runtimeHandler == "" {
+				runtimeHandler = c.config.ContainerdConfig.DefaultRuntimeName
+			}
+
+			handler, ok := c.config.ContainerdConfig.Runtimes[runtimeHandler]
+			if !ok {
+				return nil, fmt.Errorf("no runtime for %q is configured", runtimeHandler)
+			}
+
+			snapshotter := c.runtimeSnapshotter(ctx, handler)
+
+			if _, ok := image.Snapshotters[snapshotter]; !ok {
+				// return empty without error when snapshot not found.
+				return &runtime.ImageStatusResponse{}, nil
+			}
+		}
+	}
 
 	runtimeImage := toCRIImage(image)
 	info, err := c.toCRIImageInfo(ctx, &image, r.GetVerbose())
