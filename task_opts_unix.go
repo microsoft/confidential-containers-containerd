@@ -1,4 +1,3 @@
-//go:build !windows
 // +build !windows
 
 /*
@@ -28,7 +27,7 @@ import (
 )
 
 // WithNoNewKeyring causes tasks not to be created with a new keyring for secret storage.
-// There is an upper limit on the number of keyrings in a linux system
+// There is an upper limit on the number of keyrings in a Linux system.
 func WithNoNewKeyring(ctx context.Context, c *Client, ti *TaskInfo) error {
 	if CheckRuntime(ti.Runtime(), "io.containerd.runc") {
 		if ti.Options == nil {
@@ -52,7 +51,7 @@ func WithNoNewKeyring(ctx context.Context, c *Client, ti *TaskInfo) error {
 	return nil
 }
 
-// WithNoPivotRoot instructs the runtime not to you pivot_root
+// WithNoPivotRoot instructs the runtime not to pivot_root.
 func WithNoPivotRoot(_ context.Context, _ *Client, ti *TaskInfo) error {
 	if CheckRuntime(ti.Runtime(), "io.containerd.runc") {
 		if ti.Options == nil {
@@ -79,7 +78,7 @@ func WithNoPivotRoot(_ context.Context, _ *Client, ti *TaskInfo) error {
 	return nil
 }
 
-// WithShimCgroup sets the existing cgroup for the shim
+// WithShimCgroup sets the existing cgroup for the shim.
 func WithShimCgroup(path string) NewTaskOpts {
 	return func(ctx context.Context, c *Client, ti *TaskInfo) error {
 		if CheckRuntime(ti.Runtime(), "io.containerd.runc") {
@@ -105,7 +104,7 @@ func WithShimCgroup(path string) NewTaskOpts {
 	}
 }
 
-// WithUIDOwner allows console I/O to work with the remapped UID in user namespace
+// WithUIDOwner allows console I/O to work with the remapped UID in user namespace.
 func WithUIDOwner(uid uint32) NewTaskOpts {
 	return func(ctx context.Context, c *Client, ti *TaskInfo) error {
 		if CheckRuntime(ti.Runtime(), "io.containerd.runc") {
@@ -131,7 +130,7 @@ func WithUIDOwner(uid uint32) NewTaskOpts {
 	}
 }
 
-// WithGIDOwner allows console I/O to work with the remapped GID in user namespace
+// WithGIDOwner allows console I/O to work with the remapped GID in user namespace.
 func WithGIDOwner(gid uint32) NewTaskOpts {
 	return func(ctx context.Context, c *Client, ti *TaskInfo) error {
 		if CheckRuntime(ti.Runtime(), "io.containerd.runc") {
