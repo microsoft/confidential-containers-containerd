@@ -389,7 +389,7 @@ func TestSnapshotterFromPodSandboxConfig(t *testing.T) {
 			cri.config.ContainerdConfig.Runtimes["exiting-runtime"] = criconfig.Runtime{
 				Snapshotter: runtimeSnapshotter,
 			}
-			snapshotter, err := cri.snapshotterFromPodSandboxConfig(context.Background(), "test-image", tt.podSandboxConfig)
+			snapshotter, err := cri.snapshotterFromPodSandboxConfig(context.Background(), tt.podSandboxConfig)
 			assert.Equal(t, tt.expectSnapshotter, snapshotter)
 			assert.Equal(t, tt.expectErr, err)
 		})
