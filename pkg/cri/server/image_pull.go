@@ -145,7 +145,7 @@ func (c *criService) PullImage(ctx context.Context, r *runtime.PullImageRequest)
 	)
 
 	defer pcancel()
-	snapshotter, err := c.snapshotterFromPodSandboxConfig(ctx, ref, r.SandboxConfig)
+	snapshotter, err := c.snapshotterFromImageSpec(ctx, ref, r.GetImage(), r.SandboxConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -739,14 +739,14 @@ func (rt *pullRequestReporterRoundTripper) RoundTrip(req *http.Request) (*http.R
 // passed from pod sandbox config to get the runtimeHandler. The annotation key is specified in configuration.
 // Once we know the runtime, try to override default snapshotter if it is set for this runtime.
 // See https://github.com/containerd/containerd/issues/6657
-func (c *criService) snapshotterFromPodSandboxConfig(ctx context.Context, imageRef string,
-	s *runtime.PodSandboxConfig) (string, error) {
+func (c *criService) snapshotterFromImageSpec(ctx context.Context, imageRef string,
+	spec *runtime.ImageSpec, s *runtime.PodSandboxConfig) (string, error) {
 	snapshotter := c.config.ContainerdConfig.Snapshotter
-	if s == nil || s.Annotations == nil {
+	if spec == nil || spec.Annotations == nil {
 		return snapshotter, nil
 	}
 
-	runtimeHandler, ok := s.Annotations[annotations.RuntimeHandler]
+	runtimeHandler, ok := spec.Annotations[annotations.RuntimeHandler]
 	if !ok {
 		return snapshotter, nil
 	}
