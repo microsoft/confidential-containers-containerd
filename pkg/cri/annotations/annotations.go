@@ -86,7 +86,7 @@ const (
 	// The value of this annotation should be the runtime for sandboxes.
 	// e.g. for [plugins.cri.containerd.runtimes.runc] runtime config, this value should be runc
 	// TODO: we should deprecate this annotation as soon as kubelet supports passing RuntimeHandler from PullImageRequest
-	RuntimeHandler = "io.containerd.cri.runtime-handler"
+	RuntimeHandler = "kubernetes.io/runtimehandler"
 
 	// WindowsHostProcess is used by hcsshim to identify windows pods that are running HostProcesses
 	WindowsHostProcess = "microsoft.com/hostprocess-container"
