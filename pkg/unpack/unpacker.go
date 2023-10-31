@@ -49,6 +49,7 @@ import (
 
 const (
 	labelSnapshotRef = "containerd.io/snapshot.ref"
+	targetLayerDigestLabel = "containerd.io/snapshot/cri.layer-digest",
 	unpackSpanPrefix = "pkg.unpack.unpacker"
 )
 
@@ -308,6 +309,7 @@ func (u *Unpacker) unpack(
 			snapshotLabels = make(map[string]string)
 		}
 		snapshotLabels[labelSnapshotRef] = chainID
+		snapshotLabels[targetLayerDigestLabel] = desc.Digest.String()
 
 		var (
 			key    string
