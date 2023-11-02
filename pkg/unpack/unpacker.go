@@ -49,7 +49,7 @@ import (
 
 const (
 	labelSnapshotRef = "containerd.io/snapshot.ref"
-	targetLayerDigestLabel = "containerd.io/snapshot/cri.layer-digest",
+	targetLayerDigestLabel = "containerd.io/snapshot/cri.layer-digest"
 	unpackSpanPrefix = "pkg.unpack.unpacker"
 )
 
