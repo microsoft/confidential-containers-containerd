@@ -289,7 +289,7 @@ func (s *fakeImageService) LocalResolve(refOrID string) (imagestore.Image, error
 
 func (s *fakeImageService) ImageFSPaths() map[string]string { return make(map[string]string) }
 
-func (s *fakeImageService) PullImage(context.Context, string, func(string) (string, string, error), *runtime.PodSandboxConfig, string) (string, error) {
+func (s *fakeImageService) PullImage(context.Context, string, func(string) (string, string, error), *runtime.PodSandboxConfig, string, string) (string, error) {
 	return "", errors.New("not implemented")
 }
 

@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/containerd/containerd/v2/core/content"
@@ -53,6 +54,8 @@ type Image struct {
 	ImageSpec imagespec.Image
 	// Pinned image to prevent it from garbage collection
 	Pinned bool
+	// Snapshotters is a map whose keys are snapshotters for which this image has a snapshot.
+	Snapshotters map[string]struct{}
 }
 
 // Getter is used to get images but does not make changes
@@ -170,6 +173,19 @@ func (s *Store) getImage(ctx context.Context, i images.Image) (*Image, error) {
 		return nil, fmt.Errorf("read image config from content store: %w", err)
 	}
 
+	info, err := s.provider.Info(ctx, desc.Digest)
+	if err != nil {
+		return nil, fmt.Errorf("get content store config info: %w", err)
+	}
+
+	snapshotters := make(map[string]struct{})
+	for label := range info.Labels {
+		const Prefix = "containerd.io/gc.ref.snapshot."
+		if strings.HasPrefix(label, Prefix) {
+			snapshotters[label[len(Prefix):]] = struct{}{}
+		}
+	}
+
 	var spec imagespec.Image
 	if err := json.Unmarshal(blob, &spec); err != nil {
 		return nil, fmt.Errorf("unmarshal image config %s: %w", blob, err)
@@ -178,12 +194,13 @@ func (s *Store) getImage(ctx context.Context, i images.Image) (*Image, error) {
 	pinned := i.Labels[labels.PinnedImageLabelKey] == labels.PinnedImageLabelValue
 
 	return &Image{
-		ID:         id,
-		References: []string{i.Name},
-		ChainID:    chainID.String(),
-		Size:       size,
-		ImageSpec:  spec,
-		Pinned:     pinned,
+		ID:           id,
+		References:   []string{i.Name},
+		ChainID:      chainID.String(),
+		Size:         size,
+		ImageSpec:    spec,
+		Pinned:       pinned,
+		Snapshotters: snapshotters,
 	}, nil
 
 }
