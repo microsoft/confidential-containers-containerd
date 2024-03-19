@@ -97,7 +97,7 @@ type RuntimeService interface {
 type ImageService interface {
 	RuntimeSnapshotter(ctx context.Context, ociRuntime criconfig.Runtime) string
 
-	PullImage(ctx context.Context, name string, credentials func(string) (string, string, error), sandboxConfig *runtime.PodSandboxConfig, runtimeHandler string) (string, error)
+	PullImage(ctx context.Context, name string, credentials func(string) (string, string, error), sandboxConfig *runtime.PodSandboxConfig, runtimeHandler string, snapshotter string) (string, error)
 	UpdateImage(ctx context.Context, r string) error
 
 	CheckImages(ctx context.Context) error
