@@ -97,7 +97,7 @@ import (
 // PullImage pulls an image with authentication config.
 func (c *GRPCCRIImageService) PullImage(ctx context.Context, r *runtime.PullImageRequest) (_ *runtime.PullImageResponse, err error) {
 	imageRef := r.GetImage().GetImage()
-	snapshotter, err := c.snapshotterFromPodSandboxConfig(ctx, imageRef, r.SandboxConfig)
+	snapshotter, err := c.snapshotterFromPodSandboxConfig(ctx, imageRef, r.SandboxConfig, r.GetImage().GetRuntimeHandler())
 	if err != nil {
 		return nil, err
 	}
@@ -781,17 +781,19 @@ func (rt *pullRequestReporterRoundTripper) RoundTrip(req *http.Request) (*http.R
 // Once we know the runtime, try to override default snapshotter if it is set for this runtime.
 // See https://github.com/containerd/containerd/issues/6657
 func (c *CRIImageService) snapshotterFromPodSandboxConfig(ctx context.Context, imageRef string,
-	s *runtime.PodSandboxConfig) (string, error) {
+	s *runtime.PodSandboxConfig, runtimeHandler string) (string, error) {
 	snapshotter := c.config.Snapshotter
-	if s == nil || s.Annotations == nil {
-		return snapshotter, nil
-	}
 
-	// TODO(kiashok): honor the new CRI runtime handler field added to v0.29.0
-	// for image pull per runtime class support.
-	runtimeHandler, ok := s.Annotations[annotations.RuntimeHandler]
-	if !ok {
-		return snapshotter, nil
+	if runtimeHandler == "" {
+		if s == nil || s.Annotations == nil {
+			return snapshotter, nil
+		} else {
+			ok := false
+			runtimeHandler, ok = s.Annotations[annotations.RuntimeHandler]
+			if !ok {
+				return snapshotter, nil
+			}
+		}
 	}
 
 	// TODO: Ensure error is returned if runtime not found?
