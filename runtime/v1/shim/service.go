@@ -168,7 +168,7 @@ func (s *Service) Create(ctx context.Context, r *shimapi.CreateTaskRequest) (_ *
 		}
 	}()
 	if err := mount.All(mounts, rootfs); err != nil {
-		return nil, fmt.Errorf("failed to mount rootfs component: %w", err)
+		return nil, fmt.Errorf("failed to mount rootfs:%s  component: %w", rootfs, err)
 	}
 
 	s.mu.Lock()
