@@ -27,6 +27,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"runtime/debug"
 
 	"github.com/sirupsen/logrus"
 	"github.com/containerd/containerd/containers"
@@ -604,7 +605,7 @@ func WithUser(userstr string) SpecOpts {
 		s.Process.User.AdditionalGids = nil
 
 		logrus.Warnf("Cameron debug: WithUser called with userstr: %s", userstr)
-
+		debug.PrintStack()
 		// For LCOW it's a bit harder to confirm that the user actually exists on the host as a rootfs isn't
 		// mounted on the host and shared into the guest, but rather the rootfs is constructed entirely in the
 		// guest itself. To accommodate this, a spot to place the user string provided by a client as-is is needed.
