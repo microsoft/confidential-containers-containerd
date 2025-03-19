@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/images"
@@ -601,6 +602,8 @@ func WithUser(userstr string) SpecOpts {
 		setProcess(s)
 		s.Process.User.AdditionalGids = nil
 
+		logrus.Warnf("Cameron debug: WithUser called with userstr: %s", userstr)
+
 		// For LCOW it's a bit harder to confirm that the user actually exists on the host as a rootfs isn't
 		// mounted on the host and shared into the guest, but rather the rootfs is constructed entirely in the
 		// guest itself. To accommodate this, a spot to place the user string provided by a client as-is is needed.
@@ -620,9 +623,15 @@ func WithUser(userstr string) SpecOpts {
 			v, err := strconv.Atoi(parts[0])
 			if err != nil {
 				// if we cannot parse as a uint they try to see if it is a username
-				return WithUsername(userstr)(ctx, client, c, s)
+                err := WithUsername(userstr)(ctx, client, c, s)
+                // Log the parsed s.Process.User
+                logrus.Warnf("Cameron debug Parsed User: %+v", s.Process.User)
+                return err
 			}
-			return WithUserID(uint32(v))(ctx, client, c, s)
+			err = WithUserID(uint32(v))(ctx, client, c, s)
+            // Log the parsed s.Process.User
+            logrus.Warnf("Cameron debug Parsed User: %+v", s.Process.User)
+            return err
 		case 2:
 			var (
 				username  string
@@ -642,6 +651,7 @@ func WithUser(userstr string) SpecOpts {
 			}
 			if username == "" && groupname == "" {
 				s.Process.User.UID, s.Process.User.GID = uid, gid
+				logrus.Warnf("Cameron debug Parsed User: %+v", s.Process.User)
 				return nil
 			}
 			f := func(root string) error {
@@ -663,6 +673,7 @@ func WithUser(userstr string) SpecOpts {
 					}
 				}
 				s.Process.User.UID, s.Process.User.GID = uid, gid
+				logrus.Warnf("Cameron debug Parsed User: %+v", s.Process.User)
 				return nil
 			}
 			if c.Snapshotter == "" && c.SnapshotKey == "" {
@@ -687,7 +698,9 @@ func WithUser(userstr string) SpecOpts {
 			// from the container's rootfs. Since the option does read operation
 			// only, we append ReadOnly mount option to prevent the Linux kernel
 			// from syncing whole filesystem in umount syscall.
-			return mount.WithReadonlyTempMount(ctx, mounts, f)
+			err = mount.WithReadonlyTempMount(ctx, mounts, f)
+			logrus.Warnf("Cameron debug Parsed User: %+v", s.Process.User)
+			return err
 		default:
 			return fmt.Errorf("invalid USER value %s", userstr)
 		}
