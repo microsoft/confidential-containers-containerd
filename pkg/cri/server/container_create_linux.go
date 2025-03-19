@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"github.com/containerd/cgroups/v3"
 	"github.com/containerd/containerd/contrib/apparmor"
 	"github.com/containerd/containerd/contrib/seccomp"
@@ -363,6 +364,7 @@ func (c *criService) containerSpecOpts(config *runtime.ContainerConfig, imageCon
 		userstr = imageConfig.User
 	}
 	if userstr != "" {
+		logrus.Warnf("Cameron debug: pkg/cri/sbserver/container_create_linux userstr: %s", userstr)
 		specOpts = append(specOpts, oci.WithUser(userstr))
 	}
 

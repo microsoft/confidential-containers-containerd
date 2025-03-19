@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/oci"
 	"github.com/containerd/containerd/plugin"
@@ -225,6 +226,7 @@ func (c *Controller) sandboxContainerSpecOpts(config *runtime.PodSandboxConfig, 
 		userstr = imageConfig.User
 	}
 	if userstr != "" {
+		logrus.Warnf("Cameron debug: pkg/cri/sbserver/sandbox_run_linux userstr: %s", userstr)
 		specOpts = append(specOpts, oci.WithUser(userstr))
 	}
 	return specOpts, nil

@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/containerd/typeurl/v2"
 	"github.com/davecgh/go-spew/spew"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -498,6 +499,7 @@ func (c *criService) platformSpecOpts(
 			userstr = imageConfig.User
 		}
 		if userstr != "" {
+			logrus.Warnf("Cameron debug: pkg/cri/sbserver/container_create userstr: %s", userstr)
 			specOpts = append(specOpts, oci.WithUser(userstr))
 		}
 	}

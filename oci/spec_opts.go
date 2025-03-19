@@ -416,6 +416,7 @@ func WithImageConfigArgs(image Image, args []string) SpecOpts {
 			}
 			s.Process.Cwd = cwd
 			if config.User != "" {
+				logrus.Warnf("Cameron debug: WithUser called in oci/spec_opts WithImageConfigArgs: %s", config.User)
 				if err := WithUser(config.User)(ctx, client, c, s); err != nil {
 					return err
 				}

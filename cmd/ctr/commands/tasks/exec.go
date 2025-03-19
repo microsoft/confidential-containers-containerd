@@ -95,6 +95,7 @@ var execCommand = cli.Command{
 			if err != nil {
 				return err
 			}
+			logrus.Warnf("Cameron debug: WithUser called in cmt/ctr/commands/tasks/exec.go user: %s", user)
 			if err := oci.WithUser(user)(ctx, client, &c, spec); err != nil {
 				return err
 			}

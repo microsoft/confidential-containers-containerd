@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/cmd/ctr/commands"
 	"github.com/containerd/containerd/containers"
@@ -199,6 +200,7 @@ func NewContainer(ctx gocontext.Context, client *containerd.Client, context *cli
 			opts = append(opts, oci.WithProcessCwd(cwd))
 		}
 		if user := context.String("user"); user != "" {
+			logrus.Warnf("Cameron debug: WithUser called in cmd/ctr/commands/run/run_unix: %s", user)
 			opts = append(opts, oci.WithUser(user), oci.WithAdditionalGIDs(user))
 		}
 		if context.Bool("tty") {
