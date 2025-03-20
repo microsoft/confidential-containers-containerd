@@ -351,6 +351,8 @@ func (c *criService) containerSpecOpts(config *runtime.ContainerConfig, imageCon
 	// Set container username. This could only be done by containerd, because it needs
 	// access to the container rootfs. Pass user name to containerd, and let it overwrite
 	// the spec for us.
+
+	logrus.Warnf("Cameron debug: pkg/cri/sbserver/container_create_linux generateUserString(%s, %d, %d)", securityContext.GetRunAsUsername(), securityContext.GetRunAsUser(), securityContext.GetRunAsGroup())
 	userstr, err := generateUserString(
 		securityContext.GetRunAsUsername(),
 		securityContext.GetRunAsUser(),
@@ -361,6 +363,7 @@ func (c *criService) containerSpecOpts(config *runtime.ContainerConfig, imageCon
 	if userstr == "" {
 		// Lastly, since no user override was passed via CRI try to set via OCI
 		// Image
+		logrus.Warnf("Cameron debug: pkg/cri/sbserver/container_create_linux userstr=\"\" branch, imageConfig.User: %s", imageConfig.User)
 		userstr = imageConfig.User
 	}
 	if userstr != "" {
