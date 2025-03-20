@@ -604,7 +604,7 @@ func WithUser(userstr string) SpecOpts {
 		setProcess(s)
 		s.Process.User.AdditionalGids = nil
 
-		logrus.Warnf("Cameron debug: WithUser called with userstr: %s", userstr)
+		logrus.Warnf("Cameron debug: WithUser called with userstr: %s, c.ID: %s", userstr, c.ID)
 		debug.PrintStack()
 		// For LCOW it's a bit harder to confirm that the user actually exists on the host as a rootfs isn't
 		// mounted on the host and shared into the guest, but rather the rootfs is constructed entirely in the
