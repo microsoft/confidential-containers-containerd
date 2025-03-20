@@ -353,6 +353,7 @@ func (c *criService) containerSpecOpts(config *runtime.ContainerConfig, imageCon
 	// the spec for us.
 
 	logrus.Warnf("Cameron debug: pkg/cri/sbserver/container_create_linux generateUserString(%s, %d, %d)", securityContext.GetRunAsUsername(), securityContext.GetRunAsUser(), securityContext.GetRunAsGroup())
+	logrus.Warnf("Cameron debug: pkg/cri/sbserver/container_create_linux userstr=\"\" branch, imageConfig.User: %s", imageConfig.User)
 	userstr, err := generateUserString(
 		securityContext.GetRunAsUsername(),
 		securityContext.GetRunAsUser(),
