@@ -31,6 +31,7 @@ import (
 	selinux "github.com/opencontainers/selinux/go-selinux"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
 
+	"github.com/sirupsen/logrus"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/log"
@@ -50,6 +51,7 @@ func init() {
 // CreateContainer creates a new container in the given PodSandbox.
 func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateContainerRequest) (_ *runtime.CreateContainerResponse, retErr error) {
 	config := r.GetConfig()
+	logrus.Warnf("Cameron debug: pkg/cri/server::CreateContainer config.GetLinux().GetSecurityContext() %+v", config.GetLinux().GetSecurityContext())
 	log.G(ctx).Debugf("Container config %+v", config)
 	sandboxConfig := r.GetSandboxConfig()
 	sandbox, err := c.sandboxStore.Get(r.GetPodSandboxId())
