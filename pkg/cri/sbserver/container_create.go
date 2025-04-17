@@ -497,9 +497,10 @@ func (c *criService) platformSpecOpts(
 			// Lastly, since no user override was passed via CRI try to set via OCI
 			// Image
 			userstr = imageConfig.User
+			logrus.Warnf("platformSpecOpts Cameron debug: pkg/cri/sbserver/container_create OCI image userstr: %s", userstr)
 		}
 		if userstr != "" {
-			logrus.Warnf("Cameron debug: pkg/cri/sbserver/container_create userstr: %s", userstr)
+			logrus.Warnf("platformSpecOpts Cameron debug: pkg/cri/sbserver/container_create userstr: %s", userstr)
 			specOpts = append(specOpts, oci.WithUser(userstr))
 		}
 	}

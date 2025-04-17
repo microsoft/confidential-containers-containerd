@@ -234,6 +234,8 @@ func (c *criService) sandboxContainerSpecOpts(config *runtime.PodSandboxConfig, 
 		securityContext.GetRunAsUser(),
 		securityContext.GetRunAsGroup(),
 	)
+	logrus.Warnf("sandboxContainerSpecOpts Cameron debug: pkg/cri/sbserver/sanbox_run_linux securityContext userstr: %s", userstr)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate user string: %w", err)
 	}
@@ -241,9 +243,10 @@ func (c *criService) sandboxContainerSpecOpts(config *runtime.PodSandboxConfig, 
 		// Lastly, since no user override was passed via CRI try to set via OCI
 		// Image
 		userstr = imageConfig.User
+		logrus.Warnf("sandboxContainerSpecOpts Cameron debug: pkg/cri/sbserver/sanbox_run_linux userstr=\"\" path userstr: %s", userstr)
 	}
 	if userstr != "" {
-		logrus.Warnf("Cameron debug: pkg/cri/sbserver/sanbox_run_linux userstr: %s", userstr)
+		logrus.Warnf("sandboxContainerSpecOpts Cameron debug: pkg/cri/sbserver/sanbox_run_linux userstr: %s", userstr)
 		specOpts = append(specOpts, oci.WithUser(userstr))
 	}
 	return specOpts, nil

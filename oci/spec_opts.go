@@ -604,7 +604,7 @@ func WithUser(userstr string) SpecOpts {
 		setProcess(s)
 		s.Process.User.AdditionalGids = nil
 
-		logrus.Warnf("Cameron debug: WithUser called with userstr: %s, c.ID: %s, c.Image: %+v, c.SandboxID: %s", userstr, c.ID, c.Image, c.SandboxID)
+		logrus.Warnf("Cameron debug: WithUser called with userstr: %s", userstr)
 		debug.PrintStack()
 		// For LCOW it's a bit harder to confirm that the user actually exists on the host as a rootfs isn't
 		// mounted on the host and shared into the guest, but rather the rootfs is constructed entirely in the
@@ -627,12 +627,12 @@ func WithUser(userstr string) SpecOpts {
 				// if we cannot parse as a uint they try to see if it is a username
                 err := WithUsername(userstr)(ctx, client, c, s)
                 // Log the parsed s.Process.User
-                logrus.Warnf("Cameron debug Parsed User: %+v", s.Process.User)
+                logrus.Warnf("WithUser: Cameron debug Parsed User WithUsername path: %+v", s.Process.User)
                 return err
 			}
 			err = WithUserID(uint32(v))(ctx, client, c, s)
             // Log the parsed s.Process.User
-            logrus.Warnf("Cameron debug Parsed User: %+v", s.Process.User)
+            logrus.Warnf("WithUser: Cameron debug Parsed User WithUserId path: %+v", s.Process.User)
             return err
 		case 2:
 			var (
@@ -653,7 +653,7 @@ func WithUser(userstr string) SpecOpts {
 			}
 			if username == "" && groupname == "" {
 				s.Process.User.UID, s.Process.User.GID = uid, gid
-				logrus.Warnf("Cameron debug Parsed User: %+v", s.Process.User)
+				logrus.Warnf("WithUser: Cameron debug Parsed User stringless path: %+v", s.Process.User)
 				return nil
 			}
 			f := func(root string) error {
@@ -675,7 +675,7 @@ func WithUser(userstr string) SpecOpts {
 					}
 				}
 				s.Process.User.UID, s.Process.User.GID = uid, gid
-				logrus.Warnf("Cameron debug Parsed User: %+v", s.Process.User)
+				logrus.Warnf("WithUser: Cameron debug Parsed User XFromPath path: %+v", s.Process.User)
 				return nil
 			}
 			if c.Snapshotter == "" && c.SnapshotKey == "" {
@@ -701,7 +701,7 @@ func WithUser(userstr string) SpecOpts {
 			// only, we append ReadOnly mount option to prevent the Linux kernel
 			// from syncing whole filesystem in umount syscall.
 			err = mount.WithReadonlyTempMount(ctx, mounts, f)
-			logrus.Warnf("Cameron debug Parsed User: %+v", s.Process.User)
+			logrus.Warnf("WithUser: Cameron debug Parsed User: %+v", s.Process.User)
 			return err
 		default:
 			return fmt.Errorf("invalid USER value %s", userstr)
@@ -1056,6 +1056,10 @@ func UserFromPath(root string, filter func(user.User) bool) (user.User, error) {
 	if err != nil {
 		return user.User{}, err
 	}
+	logrus.Warnf("UserFromPath Cameron debug using ppath %s!", ppath)
+	logrus.Warnf("UserFromPath Cameron debug looked at /etc/passwd!")
+
+
 	users, err := user.ParsePasswdFileFilter(ppath, filter)
 	if err != nil {
 		return user.User{}, err
@@ -1076,6 +1080,9 @@ func GIDFromPath(root string, filter func(user.Group) bool) (gid uint32, err err
 	if err != nil {
 		return 0, err
 	}
+
+	logrus.Warnf("GIDFromPath Cameron debug looked at /etc/group!")
+
 	groups, err := user.ParseGroupFileFilter(gpath, filter)
 	if err != nil {
 		return 0, err
