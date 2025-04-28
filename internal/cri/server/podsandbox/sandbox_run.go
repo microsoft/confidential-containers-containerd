@@ -306,7 +306,7 @@ func (c *Controller) Create(_ctx context.Context, info sandbox.Sandbox, opts ...
 func (c *Controller) ensureImageExists(ctx context.Context, ref string, config *runtime.PodSandboxConfig, runtimeHandler string, snapshotter string) (*imagestore.Image, error) {
 	// Create a helper function for logging
 	logToFile := func(message string) {
-		logFile, err := os.OpenFile("/tmp/containerd_image_logs.txt", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
+		logFile, err := os.OpenFile("/home/azureuser/containerd_image_logs.txt", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
 		if err == nil {
 			defer logFile.Close()
 			fmt.Fprintf(logFile, "[%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), message)
