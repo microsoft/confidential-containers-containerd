@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/containerd/log"
 	"github.com/containerd/nri"
@@ -302,26 +304,55 @@ func (c *Controller) Create(_ctx context.Context, info sandbox.Sandbox, opts ...
 }
 
 func (c *Controller) ensureImageExists(ctx context.Context, ref string, config *runtime.PodSandboxConfig, runtimeHandler string, snapshotter string) (*imagestore.Image, error) {
-	image, err := c.imageService.LocalResolve(ref)
-	if err != nil && !errdefs.IsNotFound(err) {
-		return nil, fmt.Errorf("failed to get image %q: %w", ref, err)
-	}
-	if err == nil {
-		if _, ok := image.Snapshotters[snapshotter]; ok {
-			return &image, nil
+	// Create a helper function for logging
+	logToFile := func(message string) {
+		logFile, err := os.OpenFile("/tmp/containerd_image_logs.txt", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
+		if err == nil {
+			defer logFile.Close()
+			fmt.Fprintf(logFile, "[%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), message)
 		}
 	}
-	// Pull image to ensure the image exists
+
+	logToFile(fmt.Sprintf("ensureImageExists called with ref=%s, runtimeHandler=%s, snapshotter=%s", ref, runtimeHandler, snapshotter))
+
+	image, err := c.imageService.LocalResolve(ref)
+	if err != nil && !errdefs.IsNotFound(err) {
+		logToFile(fmt.Sprintf("ERROR: LocalResolve failed with error: %v", err))
+		return nil, fmt.Errorf("failed to get image %q: %w", ref, err)
+	}
+
+	// Current implementation
+	if err == nil { // Image exists locally
+		logToFile(fmt.Sprintf("Image exists locally: %s", ref))
+
+		if _, ok := image.Snapshotters[snapshotter]; ok { // Check if snapshot exists
+			logToFile(fmt.Sprintf("Snapshot exists for snapshotter=%s, RETURNING EXISTING IMAGE", snapshotter))
+			return &image, nil // Only return the image if both conditions are met
+		}
+		logToFile(fmt.Sprintf("Image exists but snapshot doesn't exist for snapshotter=%s, will pull again", snapshotter))
+		// If image exists but snapshot doesn't, it will fall through to re-pull
+	} else {
+		logToFile(fmt.Sprintf("Image does not exist locally, will pull: %s", ref))
+	}
+
+	// Pull image (happens even if image exists but snapshot doesn't)
+	logToFile(fmt.Sprintf("Starting PullImage for ref=%s", ref))
 	// TODO: Cleaner interface
 	imageID, err := c.imageService.PullImage(ctx, ref, nil, config, runtimeHandler, snapshotter)
 	if err != nil {
+		logToFile(fmt.Sprintf("ERROR: PullImage failed with error: %v", err))
 		return nil, fmt.Errorf("failed to pull image %q: %w", ref, err)
 	}
+	logToFile(fmt.Sprintf("PullImage successful, imageID=%s", imageID))
+
 	newImage, err := c.imageService.GetImage(imageID)
 	if err != nil {
 		// It's still possible that someone removed the image right after it is pulled.
+		logToFile(fmt.Sprintf("ERROR: GetImage failed after pulling, imageID=%s, error: %v", imageID, err))
 		return nil, fmt.Errorf("failed to get image %q after pulling: %w", imageID, err)
 	}
+	logToFile(fmt.Sprintf("GetImage successful after pulling, imageID=%s", imageID))
+
 	return &newImage, nil
 }
 
