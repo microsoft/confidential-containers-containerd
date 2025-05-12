@@ -20,6 +20,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/containerd/log"
 	"github.com/containerd/nri"
@@ -52,20 +56,45 @@ type CleanupErr struct {
 	error
 }
 
+// writeLog writes a log entry to the containerd.log file
+func writeLog(message string) {
+	logPath := "/home/azureuser/containerd.log"
+	_ = os.MkdirAll(filepath.Dir(logPath), 0755)
+
+	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	timestamp := time.Now().Format("2006-01-02 15:04:05.000000")
+	logEntry := fmt.Sprintf("[%s] PodSandboxController Start: %s\n", timestamp, message)
+	_, _ = io.WriteString(file, logEntry)
+}
+
 // Start creates resources required for the sandbox and starts the sandbox.  If an error occurs, Start attempts to tear
 // down the created resources.  If an error occurs while tearing down resources, a zero-valued response is returned
 // alongside the error.  If the teardown was successful, a nil response is returned with the error.
 // TODO(samuelkarp) Determine whether this error indication is reasonable to retain once controller.Delete is implemented.
 func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.ControllerInstance, retErr error) {
+	writeLog(fmt.Sprintf("Start called - id=%s", id))
+
 	var cleanupErr error
 	defer func() {
 		if retErr != nil && cleanupErr != nil {
+			writeLog(fmt.Sprintf("Both retErr and cleanupErr present - id=%s, retErr=%v, cleanupErr=%v", id, retErr, cleanupErr))
 			log.G(ctx).WithField("id", id).WithError(cleanupErr).Errorf("failed to fully teardown sandbox resources after earlier error: %s", retErr)
 			retErr = errors.Join(retErr, CleanupErr{cleanupErr})
+		} else if retErr != nil {
+			writeLog(fmt.Sprintf("Start failed with error - id=%s, error=%v", id, retErr))
+		} else {
+			writeLog(fmt.Sprintf("Start completed successfully - id=%s", id))
 		}
 	}()
+
 	podSandbox := c.store.Get(id)
 	if podSandbox == nil {
+		writeLog(fmt.Sprintf("Pod sandbox not found in store - id=%s", id))
 		return cin, fmt.Errorf("unable to find pod sandbox with id %q: %w", id, errdefs.ErrNotFound)
 	}
 	metadata := podSandbox.Metadata
@@ -76,30 +105,40 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 	)
 
 	sandboxImage := c.getSandboxImageName()
+	writeLog(fmt.Sprintf("Using sandbox image - id=%s, image=%s", id, sandboxImage))
+
 	// Ensure sandbox container image snapshot.
 	ociRuntime, err := c.config.GetSandboxRuntime(config, metadata.RuntimeHandler)
 	if err != nil {
+		writeLog(fmt.Sprintf("Failed to get sandbox runtime - id=%s, error=%v", id, err))
 		return cin, fmt.Errorf("failed to get sandbox runtime: %w", err)
 	}
+	writeLog(fmt.Sprintf("Got OCI runtime - id=%s, type=%s", id, ociRuntime.Type))
 	log.G(ctx).WithField("podsandboxid", id).Debugf("use OCI runtime %+v", ociRuntime)
 
 	labels["oci_runtime_type"] = ociRuntime.Type
 
 	snapshotter := c.imageService.RuntimeSnapshotter(ctx, ociRuntime)
+	writeLog(fmt.Sprintf("Using snapshotter - id=%s, snapshotter=%s", id, snapshotter))
 
 	image, err := c.ensureImageExists(ctx, sandboxImage, config, metadata.RuntimeHandler, snapshotter)
 	if err != nil {
+		writeLog(fmt.Sprintf("Failed to ensure image exists - id=%s, image=%s, error=%v", id, sandboxImage, err))
 		return cin, fmt.Errorf("failed to get sandbox image %q: %w", sandboxImage, err)
 	}
+	writeLog(fmt.Sprintf("Image exists - id=%s, imageID=%s", id, image.ID))
 
 	containerdImage, err := c.toContainerdImage(ctx, *image)
 	if err != nil {
+		writeLog(fmt.Sprintf("Failed to convert to containerd image - id=%s, imageID=%s, error=%v", id, image.ID, err))
 		return cin, fmt.Errorf("failed to get image from containerd %q: %w", image.ID, err)
 	}
 
 	// Create sandbox container root directories.
 	sandboxRootDir := c.getSandboxRootDir(id)
+	writeLog(fmt.Sprintf("Creating sandbox root dir - id=%s, dir=%s", id, sandboxRootDir))
 	if err := c.os.MkdirAll(sandboxRootDir, 0755); err != nil {
+		writeLog(fmt.Sprintf("Failed to create sandbox root dir - id=%s, dir=%s, error=%v", id, sandboxRootDir, err))
 		return cin, fmt.Errorf("failed to create sandbox root directory %q: %w",
 			sandboxRootDir, err)
 	}
@@ -107,6 +146,7 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 		if retErr != nil && cleanupErr == nil {
 			// Cleanup the sandbox root directory.
 			if cleanupErr = c.os.RemoveAll(sandboxRootDir); cleanupErr != nil {
+				writeLog(fmt.Sprintf("Failed to remove sandbox root dir during cleanup - id=%s, dir=%s, error=%v", id, sandboxRootDir, cleanupErr))
 				log.G(ctx).WithError(cleanupErr).Errorf("Failed to remove sandbox root directory %q",
 					sandboxRootDir)
 			}
@@ -114,7 +154,9 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 	}()
 
 	volatileSandboxRootDir := c.getVolatileSandboxRootDir(id)
+	writeLog(fmt.Sprintf("Creating volatile sandbox root dir - id=%s, dir=%s", id, volatileSandboxRootDir))
 	if err := c.os.MkdirAll(volatileSandboxRootDir, 0755); err != nil {
+		writeLog(fmt.Sprintf("Failed to create volatile sandbox root dir - id=%s, dir=%s, error=%v", id, volatileSandboxRootDir, err))
 		return cin, fmt.Errorf("failed to create volatile sandbox root directory %q: %w",
 			volatileSandboxRootDir, err)
 	}
@@ -124,6 +166,7 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 			defer deferCancel()
 			// Cleanup the volatile sandbox root directory.
 			if cleanupErr = ensureRemoveAll(deferCtx, volatileSandboxRootDir); cleanupErr != nil {
+				writeLog(fmt.Sprintf("Failed to remove volatile sandbox root dir during cleanup - id=%s, dir=%s, error=%v", id, volatileSandboxRootDir, cleanupErr))
 				log.G(ctx).WithError(cleanupErr).Errorf("Failed to remove volatile sandbox root directory %q",
 					volatileSandboxRootDir)
 			}
@@ -134,8 +177,10 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 	// NOTE: sandboxContainerSpec SHOULD NOT have side
 	// effect, e.g. accessing/creating files, so that we can test
 	// it safely.
+	writeLog(fmt.Sprintf("Generating sandbox container spec - id=%s", id))
 	spec, err := c.sandboxContainerSpec(id, config, &image.ImageSpec.Config, metadata.NetNSPath, ociRuntime.PodAnnotations)
 	if err != nil {
+		writeLog(fmt.Sprintf("Failed to generate sandbox container spec - id=%s, error=%v", id, err))
 		return cin, fmt.Errorf("failed to generate sandbox container spec: %w", err)
 	}
 	log.G(ctx).WithField("podsandboxid", id).Debugf("sandbox container spec: %#+v", spew.NewFormatter(spec))
@@ -150,6 +195,7 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 
 	// handle any KVM based runtime
 	if err := modifyProcessLabel(ociRuntime.Type, spec); err != nil {
+		writeLog(fmt.Sprintf("Failed to modify process label - id=%s, error=%v", id, err))
 		return cin, err
 	}
 
@@ -162,6 +208,7 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 	// Generate spec options that will be applied to the spec later.
 	specOpts, err := c.sandboxContainerSpecOpts(config, &image.ImageSpec.Config)
 	if err != nil {
+		writeLog(fmt.Sprintf("Failed to generate sandbox container spec options - id=%s, error=%v", id, err))
 		return cin, fmt.Errorf("failed to generate sandbox container spec options: %w", err)
 	}
 
@@ -170,6 +217,7 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 	snapshotterOpt := []snapshots.Opt{snapshots.WithLabels(snapshots.FilterInheritedLabels(config.Annotations))}
 	extraSOpts, err := sandboxSnapshotterOpts(config)
 	if err != nil {
+		writeLog(fmt.Sprintf("Failed to get snapshotter options - id=%s, error=%v", id, err))
 		return cin, err
 	}
 	snapshotterOpt = append(snapshotterOpt, extraSOpts...)
@@ -183,16 +231,20 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 		containerd.WithRuntime(ociRuntime.Type, podSandbox.Runtime.Options),
 	}
 
+	writeLog(fmt.Sprintf("Creating containerd container - id=%s", id))
 	container, err := c.client.NewContainer(ctx, id, opts...)
 	if err != nil {
+		writeLog(fmt.Sprintf("Failed to create containerd container - id=%s, error=%v", id, err))
 		return cin, fmt.Errorf("failed to create containerd container: %w", err)
 	}
+	writeLog(fmt.Sprintf("Containerd container created - id=%s", id))
 	podSandbox.Container = container
 	defer func() {
 		if retErr != nil && cleanupErr == nil {
 			deferCtx, deferCancel := ctrdutil.DeferContext()
 			defer deferCancel()
 			if cleanupErr = container.Delete(deferCtx, containerd.WithSnapshotCleanup); cleanupErr != nil {
+				writeLog(fmt.Sprintf("Failed to delete containerd container during cleanup - id=%s, error=%v", id, cleanupErr))
 				log.G(ctx).WithError(cleanupErr).Errorf("Failed to delete containerd container %q", id)
 			}
 			podSandbox.Container = nil
@@ -200,12 +252,15 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 	}()
 
 	// Setup files required for the sandbox.
+	writeLog(fmt.Sprintf("Setting up sandbox files - id=%s", id))
 	if err = c.setupSandboxFiles(id, config); err != nil {
+		writeLog(fmt.Sprintf("Failed to setup sandbox files - id=%s, error=%v", id, err))
 		return cin, fmt.Errorf("failed to setup sandbox files: %w", err)
 	}
 	defer func() {
 		if retErr != nil && cleanupErr == nil {
 			if cleanupErr = c.cleanupSandboxFiles(id, config); cleanupErr != nil {
+				writeLog(fmt.Sprintf("Failed to cleanup sandbox files during cleanup - id=%s, error=%v", id, cleanupErr))
 				log.G(ctx).WithError(cleanupErr).Errorf("Failed to cleanup sandbox files in %q",
 					sandboxRootDir)
 			}
@@ -215,10 +270,12 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 	// Update sandbox created timestamp.
 	info, err := container.Info(ctx)
 	if err != nil {
+		writeLog(fmt.Sprintf("Failed to get container info - id=%s, error=%v", id, err))
 		return cin, fmt.Errorf("failed to get sandbox container info: %w", err)
 	}
 
 	// Create sandbox task in containerd.
+	writeLog(fmt.Sprintf("Creating sandbox task - id=%s, name=%s", id, metadata.Name))
 	log.G(ctx).Tracef("Create sandbox container (id=%q, name=%q).", id, metadata.Name)
 
 	var taskOpts []containerd.NewTaskOpts
@@ -229,14 +286,17 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 	// We don't need stdio for sandbox container.
 	task, err := container.NewTask(ctx, containerdio.NullIO, taskOpts...)
 	if err != nil {
+		writeLog(fmt.Sprintf("FAILED TO CREATE CONTAINERD TASK - id=%s, error=%v", id, err))
 		return cin, fmt.Errorf("failed to create containerd task: %w", err)
 	}
+	writeLog(fmt.Sprintf("Created containerd task - id=%s", id))
 	defer func() {
 		if retErr != nil && cleanupErr == nil {
 			deferCtx, deferCancel := ctrdutil.DeferContext()
 			defer deferCancel()
 			// Cleanup the sandbox container if an error is returned.
 			if _, err := task.Delete(deferCtx, WithNRISandboxDelete(id), containerd.WithProcessKill); err != nil && !errdefs.IsNotFound(err) {
+				writeLog(fmt.Sprintf("Failed to delete task during cleanup - id=%s, error=%v", id, err))
 				log.G(ctx).WithError(err).Errorf("Failed to delete sandbox container %q", id)
 				cleanupErr = err
 			}
@@ -244,35 +304,46 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 	}()
 
 	// wait is a long running background request, no timeout needed.
+	writeLog(fmt.Sprintf("Setting up task wait - id=%s", id))
 	exitCh, err := task.Wait(ctrdutil.NamespacedContext())
 	if err != nil {
+		writeLog(fmt.Sprintf("Failed to wait for task - id=%s, error=%v", id, err))
 		return cin, fmt.Errorf("failed to wait for sandbox container task: %w", err)
 	}
 
 	nric, err := nri.New()
 	if err != nil {
+		writeLog(fmt.Sprintf("Failed to create NRI client - id=%s, error=%v", id, err))
 		return cin, fmt.Errorf("unable to create nri client: %w", err)
 	}
 	if nric != nil {
+		writeLog(fmt.Sprintf("Invoking NRI Create - id=%s", id))
 		nriSB := &nri.Sandbox{
 			ID:     id,
 			Labels: config.Labels,
 		}
 		if _, err := nric.InvokeWithSandbox(ctx, task, v1.Create, nriSB); err != nil {
+			writeLog(fmt.Sprintf("NRI invoke failed - id=%s, error=%v", id, err))
 			return cin, fmt.Errorf("nri invoke: %w", err)
 		}
 	}
 
+	writeLog(fmt.Sprintf("STARTING TASK - id=%s", id))
 	if err := task.Start(ctx); err != nil {
+		writeLog(fmt.Sprintf("FAILED TO START TASK - id=%s, error=%v", id, err))
 		return cin, fmt.Errorf("failed to start sandbox container task %q: %w", id, err)
 	}
+	writeLog(fmt.Sprintf("Task started successfully - id=%s", id))
+
 	pid := task.Pid()
+	writeLog(fmt.Sprintf("Task PID - id=%s, pid=%d", id, pid))
 	if err := podSandbox.Status.Update(func(status sandboxstore.Status) (sandboxstore.Status, error) {
 		status.Pid = pid
 		status.State = sandboxstore.StateReady
 		status.CreatedAt = info.CreatedAt
 		return status, nil
 	}); err != nil {
+		writeLog(fmt.Sprintf("Failed to update sandbox status - id=%s, error=%v", id, err))
 		return cin, fmt.Errorf("failed to update status of pod sandbox %q: %w", id, err)
 	}
 
@@ -283,6 +354,7 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 
 	go func() {
 		if err := c.waitSandboxExit(ctrdutil.NamespacedContext(), podSandbox, exitCh); err != nil {
+			writeLog(fmt.Sprintf("Failed to wait for sandbox exit - id=%s, error=%v", id, err))
 			log.G(context.Background()).Warnf("failed to wait pod sandbox exit %v", err)
 		}
 	}()
