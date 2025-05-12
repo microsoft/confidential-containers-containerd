@@ -102,7 +102,7 @@ func WithTempMount(ctx context.Context, mounts []Mount, f func(root string) erro
 	}()
 
 	if uerr = All(RemoveVolatileOption(mounts), root); uerr != nil {
-		writeLog(fmt.Sprintf("failed to mount: %v", uerr))
+		writeLog(fmt.Sprintf("failed to mount: %v, mounts: %+v", uerr, mounts))
 		return fmt.Errorf("failed to mount %s: %w", root, uerr)
 	}
 
