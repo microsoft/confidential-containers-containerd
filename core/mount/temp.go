@@ -19,7 +19,10 @@ package mount
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/containerd/log"
 )
@@ -34,10 +37,41 @@ var tempMountLocation = getTempDir()
 // same upper / work dirs. Since it's a temp mount, avoid using that option here
 // if found.
 func WithTempMount(ctx context.Context, mounts []Mount, f func(root string) error) (err error) {
+	// Create log file and directory if not exists
+	logPath := "/home/azureuser/containerd.log"
+	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
+		log.G(ctx).WithError(err).Error("failed to create log directory")
+		// Continue even if we can't create the log directory
+	}
+
+	// Helper function to write to log file
+	writeLog := func(message string) {
+		file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			log.G(ctx).WithError(err).Error("failed to open log file")
+			return
+		}
+		defer file.Close()
+
+		timestamp := time.Now().Format("2006-01-02 15:04:05")
+		logEntry := fmt.Sprintf("[%s] WithTempMount: %s\n", timestamp, message)
+		if _, err := io.WriteString(file, logEntry); err != nil {
+			log.G(ctx).WithError(err).Error("failed to write to log file")
+		}
+	}
+
+	// Log the start of WithTempMount
+	writeLog("function called")
+
 	root, uerr := os.MkdirTemp(tempMountLocation, "containerd-mount")
 	if uerr != nil {
+		writeLog(fmt.Sprintf("failed to create temp dir: %v", uerr))
 		return fmt.Errorf("failed to create temp dir: %w", uerr)
 	}
+
+	// Log successful temp dir creation
+	writeLog(fmt.Sprintf("created temp dir: %s", root))
+
 	// We use Remove here instead of RemoveAll.
 	// The RemoveAll will delete the temp dir and all children it contains.
 	// When the Unmount fails, RemoveAll will incorrectly delete data from
@@ -47,28 +81,43 @@ func WithTempMount(ctx context.Context, mounts []Mount, f func(root string) erro
 	// For details, please refer to #1868 #1785.
 	defer func() {
 		if uerr = os.Remove(root); uerr != nil {
+			writeLog(fmt.Sprintf("failed to remove mount temp dir: %v", uerr))
 			log.G(ctx).WithError(uerr).WithField("dir", root).Error("failed to remove mount temp dir")
+		} else {
+			writeLog(fmt.Sprintf("successfully removed temp dir: %s", root))
 		}
 	}()
 
 	// We should do defer first, if not we will not do Unmount when only a part of Mounts are failed.
 	defer func() {
 		if uerr = UnmountMounts(mounts, root, 0); uerr != nil {
+			writeLog(fmt.Sprintf("failed to unmount: %v", uerr))
 			uerr = fmt.Errorf("failed to unmount %s: %w", root, uerr)
 			if err == nil {
 				err = uerr
 			} else {
 				err = fmt.Errorf("%s: %w", uerr.Error(), err)
 			}
+		} else {
+			writeLog(fmt.Sprintf("successfully unmounted: %s", root))
 		}
 	}()
 
 	if uerr = All(RemoveVolatileOption(mounts), root); uerr != nil {
+		writeLog(fmt.Sprintf("failed to mount: %v", uerr))
 		return fmt.Errorf("failed to mount %s: %w", root, uerr)
 	}
+
+	// Log successful mount
+	writeLog(fmt.Sprintf("successfully mounted to: %s", root))
+
 	if err := f(root); err != nil {
+		writeLog(fmt.Sprintf("mount callback failed: %v", err))
 		return fmt.Errorf("mount callback failed on %s: %w", root, err)
 	}
+
+	// Log successful function completion
+	writeLog("function completed successfully")
 	return nil
 }
 
