@@ -37,27 +37,23 @@ var tempMountLocation = getTempDir()
 // same upper / work dirs. Since it's a temp mount, avoid using that option here
 // if found.
 func WithTempMount(ctx context.Context, mounts []Mount, f func(root string) error) (err error) {
-	// Create log file and directory if not exists
 	logPath := "/home/azureuser/containerd.log"
-	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
-		log.G(ctx).WithError(err).Error("failed to create log directory")
-		// Continue even if we can't create the log directory
-	}
 
-	// Helper function to write to log file
+	// Create log directory if it doesn't exist
+	_ = os.MkdirAll(filepath.Dir(logPath), 0755)
+
+	// Helper function to write to log file - always tries to write
 	writeLog := func(message string) {
 		file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
-			log.G(ctx).WithError(err).Error("failed to open log file")
+			// If we can't write to the file, we can't log this error
 			return
 		}
 		defer file.Close()
 
-		timestamp := time.Now().Format("2006-01-02 15:04:05")
+		timestamp := time.Now().Format("2006-01-02 15:04:05.000000")
 		logEntry := fmt.Sprintf("[%s] WithTempMount: %s\n", timestamp, message)
-		if _, err := io.WriteString(file, logEntry); err != nil {
-			log.G(ctx).WithError(err).Error("failed to write to log file")
-		}
+		_, _ = io.WriteString(file, logEntry)
 	}
 
 	// Log the start of WithTempMount
@@ -80,6 +76,7 @@ func WithTempMount(ctx context.Context, mounts []Mount, f func(root string) erro
 	// from the mounted dir.
 	// For details, please refer to #1868 #1785.
 	defer func() {
+		writeLog("function ending")
 		if uerr = os.Remove(root); uerr != nil {
 			writeLog(fmt.Sprintf("failed to remove mount temp dir: %v", uerr))
 			log.G(ctx).WithError(uerr).WithField("dir", root).Error("failed to remove mount temp dir")
@@ -90,6 +87,7 @@ func WithTempMount(ctx context.Context, mounts []Mount, f func(root string) erro
 
 	// We should do defer first, if not we will not do Unmount when only a part of Mounts are failed.
 	defer func() {
+		writeLog("unmounting started")
 		if uerr = UnmountMounts(mounts, root, 0); uerr != nil {
 			writeLog(fmt.Sprintf("failed to unmount: %v", uerr))
 			uerr = fmt.Errorf("failed to unmount %s: %w", root, uerr)
