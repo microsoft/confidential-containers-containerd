@@ -16,11 +16,11 @@ jobs:
         working-directory: src/github.com/containerd/containerd
 
     steps:
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@bfdd3570ce990073878bf10f6b2d79082de49492 # v2.2.0
         with:
           go-version: '1.17.7'
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2.8.0
         with:
           path: src/github.com/containerd/containerd
 
@@ -101,25 +101,25 @@ jobs:
       #
 
       - name: Upload artifacts (linux_amd64)
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@3446296876d12d4e3a0f3145a3c87e67bf0a16b5 # v1.0.0
         with:
           name: linux_amd64
           path: src/github.com/containerd/containerd/bin_amd64
 
       - name: Upload artifacts (linux_arm64)
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@3446296876d12d4e3a0f3145a3c87e67bf0a16b5 # v1.0.0
         with:
           name: linux_arm64
           path: src/github.com/containerd/containerd/bin_arm64
 
       - name: Upload artifacts (linux_s390x)
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@3446296876d12d4e3a0f3145a3c87e67bf0a16b5 # v1.0.0
         with:
           name: linux_s390x
           path: src/github.com/containerd/containerd/bin_s390x
 
       - name: Upload artifacts (linux_ppc64le)
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@3446296876d12d4e3a0f3145a3c87e67bf0a16b5 # v1.0.0
         with:
           name: linux_ppc64le
           path: src/github.com/containerd/containerd/bin_ppc64le
@@ -133,11 +133,11 @@ jobs:
         working-directory: src/github.com/containerd/containerd
 
     steps:
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@bfdd3570ce990073878bf10f6b2d79082de49492 # v2.2.0
         with:
           go-version: '1.17.7'
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2.8.0
         with:
           path: src/github.com/containerd/containerd
 
@@ -155,7 +155,7 @@ jobs:
           make binaries
 
       - name: Upload artifacts (windows_amd64)
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@3446296876d12d4e3a0f3145a3c87e67bf0a16b5 # v1.0.0
         with:
           name: windows_amd64
           path: src/github.com/containerd/containerd/bin/
